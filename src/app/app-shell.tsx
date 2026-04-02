@@ -1,5 +1,5 @@
 import { Link, Navigate, NavLink, Outlet, useLocation } from "react-router-dom"
-import { LogOutIcon, PlusIcon, UsersIcon } from "lucide-react"
+import { LogOutIcon, PlusIcon, Settings2Icon, UsersIcon } from "lucide-react"
 
 import { useAuth } from "@/features/auth/auth-context"
 import { Button } from "@/components/ui/button"
@@ -33,7 +33,7 @@ export const AppShell = () => {
           <div className="flex items-center gap-4">
             <Link
               to="/customers"
-              className=" px-4 py-2 text-lg font-semibold tracking-tight text-primary-foreground"
+              className="px-4 py-2 text-lg font-semibold tracking-tight text-primary-foreground"
             >
               ZR System
             </Link>
@@ -49,6 +49,20 @@ export const AppShell = () => {
                   >
                     <UsersIcon className="mr-2 size-4" />
                     Clientes
+                  </span>
+                )}
+              </NavLink>
+              <NavLink to="/settings/customers/form-metadata">
+                {({ isActive }) => (
+                  <span
+                    className={`inline-flex items-center rounded-lg px-3 py-1.5 text-sm transition ${
+                      isActive
+                        ? "border border-primary bg-primary text-primary-foreground"
+                        : "border border-border bg-card text-foreground"
+                    }`}
+                  >
+                    <Settings2Icon className="mr-2 size-4" />
+                    Padronização
                   </span>
                 )}
               </NavLink>

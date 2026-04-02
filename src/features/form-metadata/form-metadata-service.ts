@@ -1,5 +1,9 @@
 import { apiClient } from "@/shared/api/http-client"
-import type { FormMetadataResponse, PersonType } from "@/shared/api/types"
+import type {
+  FormMetadataResponse,
+  PersonType,
+  UpdateFormFieldConfigInput,
+} from "@/shared/api/types"
 
 const withQuery = (path: string, params?: Record<string, string | undefined>) => {
   const url = new URL(path, "http://placeholder.local")
@@ -14,9 +18,22 @@ const withQuery = (path: string, params?: Record<string, string | undefined>) =>
 }
 
 export const formMetadataService = {
+  getCustomerConfiguration(personType?: PersonType) {
+    return apiClient.get<FormMetadataResponse>(
+      withQuery("/form-metadata/customers", { personType })
+    )
+  },
+
   getCustomerFields(personType?: PersonType) {
     return apiClient.get<FormMetadataResponse>(
       withQuery("/form-metadata/customers/fields", { personType })
+    )
+  },
+
+  updateCustomerField(fieldKey: string, input: UpdateFormFieldConfigInput) {
+    return apiClient.patch<FormMetadataResponse>(
+      `/form-metadata/customers/fields/${encodeURIComponent(fieldKey)}`,
+      input
     )
   },
 

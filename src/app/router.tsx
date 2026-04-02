@@ -4,6 +4,7 @@ import { AppShell } from "@/app/app-shell"
 import { LoginPage } from "@/features/auth/login-page"
 import { CustomerFormPage } from "@/features/customers/customer-form-page"
 import { CustomerListPage } from "@/features/customers/customer-list-page"
+import { CustomerFormMetadataPage } from "@/features/form-metadata/customer-form-metadata-page"
 
 export const router = createBrowserRouter([
   {
@@ -29,6 +30,10 @@ export const router = createBrowserRouter([
       {
         path: "customers/:customerId/edit",
         element: <CustomerFormPage mode="edit" />,
+      },
+      {
+        path: "settings/customers/form-metadata",
+        element: <CustomerFormMetadataPage />,
       },
     ],
   },

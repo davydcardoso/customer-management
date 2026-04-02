@@ -2,6 +2,9 @@ import type {
   CommunicationChannel,
   CommunicationTopic,
   ContactType,
+  FieldDataType,
+  ImportanceLevel,
+  InputType,
   PersonType,
 } from "@/shared/api/types"
 
@@ -40,6 +43,33 @@ export const CONTACT_TYPE_OPTIONS: SelectOption<ContactType>[] = [
   { value: "PHONE", label: "Telefone" },
   { value: "MOBILE", label: "Celular" },
   { value: "MESSAGING", label: "Mensagens" },
+]
+
+export const IMPORTANCE_OPTIONS: SelectOption<ImportanceLevel>[] = [
+  { value: "LOW", label: "Baixa" },
+  { value: "MEDIUM", label: "Média" },
+  { value: "HIGH", label: "Alta" },
+]
+
+export const INPUT_TYPE_OPTIONS: SelectOption<InputType>[] = [
+  { value: "text", label: "Texto" },
+  { value: "textarea", label: "Texto longo" },
+  { value: "select", label: "Seleção" },
+  { value: "date", label: "Data" },
+  { value: "document", label: "Documento" },
+  { value: "currency", label: "Moeda" },
+  { value: "number", label: "Número" },
+  { value: "boolean", label: "Booleano" },
+  { value: "collection", label: "Coleção" },
+]
+
+export const DATA_TYPE_OPTIONS: SelectOption<FieldDataType>[] = [
+  { value: "string", label: "String" },
+  { value: "number", label: "Número" },
+  { value: "boolean", label: "Booleano" },
+  { value: "date", label: "Data" },
+  { value: "object", label: "Objeto" },
+  { value: "array", label: "Array" },
 ]
 
 export const COMMUNICATION_CHANNEL_OPTIONS: SelectOption<CommunicationChannel>[] =

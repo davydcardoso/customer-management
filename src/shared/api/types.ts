@@ -282,6 +282,10 @@ export type VisibleWhen = {
   personType?: PersonType[]
 } | null
 
+export type FormMetadataScope = {
+  personType?: Nullable<PersonType>
+}
+
 export type FieldConfig = {
   fieldKey: string
   label: string
@@ -311,10 +315,10 @@ export type FormMetadataResponse = {
   formKey: string
   entity: string
   version: string
-  scope?: {
-    personType?: Nullable<PersonType>
-  }
+  scope?: FormMetadataScope
   sections: SectionConfig[]
   fields: FieldConfig[]
   groupedFields?: GroupedFieldSection[]
 }
+
+export type UpdateFormFieldConfigInput = Partial<Omit<FieldConfig, "fieldKey">>
