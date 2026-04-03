@@ -446,10 +446,10 @@ export const createDefaultValues = (): CustomerFormValues => ({
     classification: "",
     referralSource: "",
     referralName: "",
-    allowsInvoice: "",
-    hasRestriction: "",
-    isFinalConsumer: "",
-    isRuralProducer: "",
+    allowsInvoice: "false",
+    hasRestriction: "false",
+    isFinalConsumer: "false",
+    isRuralProducer: "false",
     notes: "",
   },
   profile: {
@@ -471,7 +471,7 @@ export const createDefaultValues = (): CustomerFormValues => ({
     taxpayerType: "",
     openingDate: "",
     companySegment: "",
-    issWithheld: "",
+    issWithheld: "false",
   },
   financial: {
     creditLimit: "",
@@ -578,6 +578,14 @@ export const normalizeBoolean = (value: BooleanFieldValue) => {
   return value === "true"
 }
 
+export const normalizeOptionalBoolean = (value: BooleanFieldValue) => {
+  if (value === "") {
+    return undefined
+  }
+
+  return value === "true"
+}
+
 export const normalizeRequiredBoolean = (
   value: BooleanFieldValue,
   fallback = true
@@ -664,7 +672,7 @@ export const mapResponsiblePayload = (
     role: normalizeText(values.role),
     profession: normalizeText(values.profession),
     driverLicenseExpiresAt: normalizeDate(values.driverLicenseExpiresAt),
-    active: normalizeBoolean(values.active),
+    active: normalizeRequiredBoolean(values.active),
     customerSince: normalizeDate(values.customerSince),
     referralSource: normalizeText(values.referralSource),
     referralName: normalizeText(values.referralName),
@@ -684,10 +692,10 @@ export const toPayload = (
     classification: normalizeText(values.core.classification),
     referralSource: normalizeText(values.core.referralSource),
     referralName: normalizeText(values.core.referralName),
-    allowsInvoice: normalizeBoolean(values.core.allowsInvoice),
-    hasRestriction: normalizeBoolean(values.core.hasRestriction),
-    isFinalConsumer: normalizeBoolean(values.core.isFinalConsumer),
-    isRuralProducer: normalizeBoolean(values.core.isRuralProducer),
+    allowsInvoice: normalizeOptionalBoolean(values.core.allowsInvoice),
+    hasRestriction: normalizeOptionalBoolean(values.core.hasRestriction),
+    isFinalConsumer: normalizeOptionalBoolean(values.core.isFinalConsumer),
+    isRuralProducer: normalizeOptionalBoolean(values.core.isRuralProducer),
     notes: normalizeText(values.core.notes),
   }
 
@@ -756,7 +764,7 @@ export const toPayload = (
       taxpayerType: normalizeText(values.profile.taxpayerType),
       openingDate: normalizeDate(values.profile.openingDate),
       companySegment: normalizeText(values.profile.companySegment),
-      issWithheld: normalizeBoolean(values.profile.issWithheld),
+      issWithheld: normalizeOptionalBoolean(values.profile.issWithheld),
     },
     financial,
     address,
@@ -799,10 +807,26 @@ export const mapCustomerToFormValues = (
       classification: customer.core.classification || "",
       referralSource: customer.core.referralSource || "",
       referralName: customer.core.referralName || "",
-      allowsInvoice: toBooleanFieldValue(customer.core.allowsInvoice),
-      hasRestriction: toBooleanFieldValue(customer.core.hasRestriction),
-      isFinalConsumer: toBooleanFieldValue(customer.core.isFinalConsumer),
-      isRuralProducer: toBooleanFieldValue(customer.core.isRuralProducer),
+      allowsInvoice:
+        customer.core.allowsInvoice === null ||
+        customer.core.allowsInvoice === undefined
+          ? defaults.core.allowsInvoice
+          : toBooleanFieldValue(customer.core.allowsInvoice),
+      hasRestriction:
+        customer.core.hasRestriction === null ||
+        customer.core.hasRestriction === undefined
+          ? defaults.core.hasRestriction
+          : toBooleanFieldValue(customer.core.hasRestriction),
+      isFinalConsumer:
+        customer.core.isFinalConsumer === null ||
+        customer.core.isFinalConsumer === undefined
+          ? defaults.core.isFinalConsumer
+          : toBooleanFieldValue(customer.core.isFinalConsumer),
+      isRuralProducer:
+        customer.core.isRuralProducer === null ||
+        customer.core.isRuralProducer === undefined
+          ? defaults.core.isRuralProducer
+          : toBooleanFieldValue(customer.core.isRuralProducer),
       notes: customer.core.notes || "",
     },
     profile: {
@@ -830,9 +854,12 @@ export const mapCustomerToFormValues = (
       taxpayerType: (profile.taxpayerType as string | undefined) || "",
       openingDate: (profile.openingDate as string | undefined) || "",
       companySegment: (profile.companySegment as string | undefined) || "",
-      issWithheld: toBooleanFieldValue(
-        profile.issWithheld as boolean | null | undefined
-      ),
+      issWithheld:
+        profile.issWithheld === null || profile.issWithheld === undefined
+          ? defaults.profile.issWithheld
+          : toBooleanFieldValue(
+              profile.issWithheld as boolean | null | undefined
+            ),
     },
     financial: {
       creditLimit: customer.financial?.creditLimit?.toString() || "",
@@ -884,7 +911,7 @@ export const mapCustomerToFormValues = (
       role: responsible.role || "",
       profession: responsible.profession || "",
       driverLicenseExpiresAt: responsible.driverLicenseExpiresAt || "",
-      active: toBooleanFieldValue(responsible.active),
+      active: toBooleanFieldValue(responsible.active ?? true),
       customerSince: responsible.customerSince || "",
       referralSource: responsible.referralSource || "",
       referralName: responsible.referralName || "",
@@ -948,3 +975,169 @@ const getFieldTone = (fieldConfig: FieldConfig) => {
 
 export const getFieldClasses = (fieldConfig: FieldConfig) =>
   `text-sm font-medium ${getFieldTone(fieldConfig)}`
+
+export const getFieldControlClasses = (fieldConfig: FieldConfig) => {
+  if (fieldConfig.required) {
+    return "border-rose-300 focus-visible:border-rose-500 focus-visible:ring-rose-100"
+  }
+
+  if (fieldConfig.importance === "HIGH") {
+    return "border-emerald-300 focus-visible:border-emerald-500 focus-visible:ring-emerald-100"
+  }
+
+  return ""
+}
+
+const isRepeatedDigits = (value: string) => /^(\d)\1+$/.test(value)
+
+const validateCpfDigits = (value: string) => {
+  if (value.length !== 11 || isRepeatedDigits(value)) {
+    return false
+  }
+
+  let sum = 0
+  for (let index = 0; index < 9; index += 1) {
+    sum += Number(value[index]) * (10 - index)
+  }
+
+  let remainder = (sum * 10) % 11
+  if (remainder === 10) {
+    remainder = 0
+  }
+
+  if (remainder !== Number(value[9])) {
+    return false
+  }
+
+  sum = 0
+  for (let index = 0; index < 10; index += 1) {
+    sum += Number(value[index]) * (11 - index)
+  }
+
+  remainder = (sum * 10) % 11
+  if (remainder === 10) {
+    remainder = 0
+  }
+
+  return remainder === Number(value[10])
+}
+
+const validateCnpjDigits = (value: string) => {
+  if (value.length !== 14 || isRepeatedDigits(value)) {
+    return false
+  }
+
+  const calculateCheckDigit = (base: string) => {
+    const weights =
+      base.length === 12
+        ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+        : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+
+    const sum = base
+      .split("")
+      .reduce(
+        (total, digit, index) => total + Number(digit) * weights[index],
+        0
+      )
+
+    const remainder = sum % 11
+    return remainder < 2 ? 0 : 11 - remainder
+  }
+
+  const base = value.slice(0, 12)
+  const firstDigit = calculateCheckDigit(base)
+  const secondDigit = calculateCheckDigit(`${base}${firstDigit}`)
+
+  return value === `${base}${firstDigit}${secondDigit}`
+}
+
+const getDocumentValidationType = (fieldConfig: FieldConfig) => {
+  if (
+    fieldConfig.mask === "cpf" ||
+    fieldConfig.fieldKey.toLowerCase().includes("cpf")
+  ) {
+    return "cpf"
+  }
+
+  if (
+    fieldConfig.mask === "cnpj" ||
+    fieldConfig.fieldKey.toLowerCase().includes("cnpj")
+  ) {
+    return "cnpj"
+  }
+
+  return null
+}
+
+export const isPersonalFullNameField = (fieldConfig: FieldConfig) =>
+  fieldConfig.fieldKey === "fullName" ||
+  fieldConfig.fieldKey === "profile.fullName"
+
+const NAME_CONNECTORS = new Set(["da", "das", "de", "do", "dos", "e"])
+
+const isValidNameToken = (token: string) =>
+  /^[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['-][A-Za-zÀ-ÖØ-öø-ÿ]+)*$/.test(token)
+
+export const getPersonalNameValidationMessage = (
+  fieldConfig: FieldConfig,
+  value: string
+) => {
+  if (!isPersonalFullNameField(fieldConfig)) {
+    return true
+  }
+
+  const normalizedValue = value.trim().replace(/\s+/g, " ")
+
+  if (!normalizedValue) {
+    return true
+  }
+
+  const tokens = normalizedValue.split(" ")
+
+  if (tokens.length < 2) {
+    return "Informe nome e sobrenome válidos."
+  }
+
+  if (tokens.some((token) => !isValidNameToken(token))) {
+    return "Informe nome e sobrenome válidos."
+  }
+
+  const lastToken = tokens.at(-1)?.toLowerCase()
+
+  if (!lastToken || NAME_CONNECTORS.has(lastToken)) {
+    return "Informe nome e sobrenome válidos."
+  }
+
+  const nonConnectorTokens = tokens.filter(
+    (token) => !NAME_CONNECTORS.has(token.toLowerCase())
+  )
+
+  if (nonConnectorTokens.length < 2) {
+    return "Informe nome e sobrenome válidos."
+  }
+
+  return true
+}
+
+export const getDocumentValidationMessage = (
+  fieldConfig: FieldConfig,
+  value: string
+) => {
+  const validationType = getDocumentValidationType(fieldConfig)
+
+  if (!validationType) {
+    return true
+  }
+
+  const digits = digitsOnly(value)
+
+  if (digits.length === 0) {
+    return true
+  }
+
+  if (validationType === "cpf") {
+    return validateCpfDigits(digits) || "CPF inválido."
+  }
+
+  return validateCnpjDigits(digits) || "CNPJ inválido."
+}

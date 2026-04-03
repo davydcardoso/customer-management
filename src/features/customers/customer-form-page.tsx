@@ -57,13 +57,18 @@ import {
   createEmptyContact,
   createEmptyEmail,
   createEmptyResponsible,
+  getDocumentValidationMessage,
   getFieldClasses,
+  getFieldControlClasses,
+  getPersonalNameValidationMessage,
   groupFields,
   hasValue,
+  isPersonalFullNameField,
   mapCustomerToFormValues,
   mergeResponsibleMetadata,
   toPayload,
 } from "@/features/customers/lib/customer-form-helpers"
+import { useCustomerFormDraft } from "@/features/customers/lib/use-customer-form-draft"
 import { customerService } from "@/features/customers/customer-service"
 import type {
   ContactEmailSectionProps,
@@ -104,6 +109,24 @@ import {
 } from "@/shared/lib/options"
 import { getValueByPath } from "@/shared/lib/object-path"
 import { useDebouncedValue } from "@/shared/lib/use-debounced-value"
+import { cn } from "@/lib/utils"
+
+const formatDraftTimestamp = (value: string | null) => {
+  if (!value) {
+    return null
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(date)
+}
 
 const BooleanSelect = ({
   fieldConfig,
@@ -123,7 +146,9 @@ const BooleanSelect = ({
     }
     disabled={disabled}
   >
-    <SelectTrigger className="w-full">
+    <SelectTrigger
+      className={cn("w-full", getFieldControlClasses(fieldConfig))}
+    >
       <SelectValue placeholder="Selecione" />
     </SelectTrigger>
     <SelectContent>
@@ -156,11 +181,28 @@ const ScalarField = ({ fieldConfig, form, name, disabled }: FieldProps) => {
       name={name as never}
       rules={{
         validate: (value) => {
-          if (!fieldConfig.required || fieldConfig.readOnly) {
+          if (fieldConfig.readOnly) {
             return true
           }
 
-          return hasValue(value) || `${fieldConfig.label} é obrigatório.`
+          if (!hasValue(value)) {
+            return (
+              !fieldConfig.required || `${fieldConfig.label} é obrigatório.`
+            )
+          }
+
+          if (
+            fieldConfig.inputType === "document" &&
+            typeof value === "string"
+          ) {
+            return getDocumentValidationMessage(fieldConfig, value)
+          }
+
+          if (typeof value === "string") {
+            return getPersonalNameValidationMessage(fieldConfig, value)
+          }
+
+          return true
         },
       }}
       render={({ field }) => {
@@ -179,8 +221,11 @@ const ScalarField = ({ fieldConfig, form, name, disabled }: FieldProps) => {
                 disabled={disabled}
                 className={
                   fieldConfig.readOnly
-                    ? "bg-background text-muted-foreground"
-                    : undefined
+                    ? cn(
+                        getFieldControlClasses(fieldConfig),
+                        "bg-background text-muted-foreground"
+                      )
+                    : getFieldControlClasses(fieldConfig)
                 }
               />
               {error?.message ? (
@@ -202,7 +247,9 @@ const ScalarField = ({ fieldConfig, form, name, disabled }: FieldProps) => {
                 }
                 disabled={disabled || fieldConfig.readOnly}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger
+                  className={cn("w-full", getFieldControlClasses(fieldConfig))}
+                >
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
@@ -262,7 +309,16 @@ const ScalarField = ({ fieldConfig, form, name, disabled }: FieldProps) => {
               inputMode={inputMode}
               list={listId}
               value={value}
-              onBlur={field.onBlur}
+              onBlur={() => {
+                field.onBlur()
+
+                if (
+                  fieldConfig.inputType === "document" ||
+                  isPersonalFullNameField(fieldConfig)
+                ) {
+                  void form.trigger(name as never)
+                }
+              }}
               onChange={(event) => {
                 const nextValue =
                   fieldConfig.inputType === "document"
@@ -277,8 +333,11 @@ const ScalarField = ({ fieldConfig, form, name, disabled }: FieldProps) => {
               disabled={disabled}
               className={
                 fieldConfig.readOnly
-                  ? "bg-background text-muted-foreground"
-                  : undefined
+                  ? cn(
+                      getFieldControlClasses(fieldConfig),
+                      "bg-background text-muted-foreground"
+                    )
+                  : getFieldControlClasses(fieldConfig)
               }
             />
             {error?.message ? (
@@ -300,18 +359,143 @@ const SectionGrid = ({
 }) => (
   <div
     className={`grid gap-4 ${
-      wide ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-4"
+      wide ? "md:grid-cols-6 xl:grid-cols-12" : "md:grid-cols-6 xl:grid-cols-12"
     }`}
   >
     {children}
   </div>
 )
 
+const getFieldLayoutClasses = (fieldKey: string) => {
+  switch (fieldKey) {
+    case "personType":
+      return "md:col-span-2 xl:col-span-2"
+    case "profile.cpf":
+    case "cpf":
+    case "profile.cnpj":
+    case "cnpj":
+      return "md:col-span-2 xl:col-span-2"
+    case "profile.rg":
+    case "rg":
+    case "profile.stateRegistration":
+    case "stateRegistration":
+    case "profile.municipalRegistration":
+    case "municipalRegistration":
+    case "profile.suframaRegistration":
+    case "suframaRegistration":
+      return "md:col-span-2 xl:col-span-2"
+    case "profile.fullName":
+    case "fullName":
+    case "profile.corporateName":
+    case "corporateName":
+      return "md:col-span-6 xl:col-span-4"
+    case "profile.tradeName":
+    case "tradeName":
+    case "profile.nickname":
+    case "nickname":
+      return "md:col-span-3 xl:col-span-3"
+    case "profile.birthDate":
+    case "birthDate":
+    case "profile.openingDate":
+    case "openingDate":
+    case "core.customerSince":
+    case "customerSince":
+    case "profile.driverLicenseExpiresAt":
+    case "driverLicenseExpiresAt":
+      return "md:col-span-2 xl:col-span-2"
+    case "profile.gender":
+    case "gender":
+    case "profile.familyRelationship":
+    case "familyRelationship":
+    case "profile.taxpayerType":
+    case "taxpayerType":
+    case "core.active":
+    case "active":
+    case "core.allowsInvoice":
+    case "allowsInvoice":
+    case "core.hasRestriction":
+    case "hasRestriction":
+    case "core.isFinalConsumer":
+    case "isFinalConsumer":
+    case "core.isRuralProducer":
+    case "isRuralProducer":
+      return "md:col-span-2 xl:col-span-2"
+    case "profile.profession":
+    case "profession":
+    case "role":
+    case "profile.companySegment":
+    case "companySegment":
+    case "core.classification":
+    case "classification":
+      return "md:col-span-3 xl:col-span-3"
+    case "core.referralSource":
+    case "referralSource":
+      return "md:col-span-3 xl:col-span-3"
+    case "core.referralName":
+    case "referralName":
+      return "md:col-span-3 xl:col-span-3"
+    case "financial.creditLimit":
+    case "creditLimit":
+    case "financial.amountSpent":
+    case "amountSpent":
+    case "financial.balance":
+    case "balance":
+    case "financial.consumedAmount":
+    case "consumedAmount":
+    case "financial.costAmount":
+    case "costAmount":
+    case "financial.commissionPercentage":
+    case "commissionPercentage":
+    case "financial.paymentDay":
+    case "paymentDay":
+      return "md:col-span-2 xl:col-span-2"
+    case "financial.pixKeyOrDescription":
+    case "pixKeyOrDescription":
+      return "md:col-span-3 xl:col-span-3"
+    case "address.zipCode":
+    case "zipCode":
+      return "md:col-span-2 xl:col-span-2"
+    case "address.street":
+    case "street":
+      return "md:col-span-4 xl:col-span-5"
+    case "address.number":
+    case "number":
+      return "md:col-span-2 xl:col-span-1"
+    case "address.complement":
+    case "complement":
+      return "md:col-span-2 xl:col-span-2"
+    case "address.district":
+    case "district":
+      return "md:col-span-2 xl:col-span-2"
+    case "address.city":
+    case "city":
+      return "md:col-span-3 xl:col-span-4"
+    case "address.state":
+    case "state":
+      return "md:col-span-3 xl:col-span-2"
+    case "address.cityCode":
+    case "cityCode":
+    case "address.stateCode":
+    case "stateCode":
+      return "md:col-span-2 xl:col-span-2"
+    case "address.reference":
+    case "reference":
+      return "md:col-span-3 xl:col-span-4"
+    case "core.notes":
+    case "notes":
+      return "md:col-span-6 xl:col-span-12"
+    default:
+      return "md:col-span-3 xl:col-span-3"
+  }
+}
+
 const ReferralSearchInput = ({
+  fieldConfig,
   value,
   onChange,
   disabled,
 }: {
+  fieldConfig: FieldConfig
   value: string
   onChange: (value: string) => void
   disabled?: boolean
@@ -332,7 +516,7 @@ const ReferralSearchInput = ({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder="Busque por nome, CPF ou CNPJ"
-          className="pl-9"
+          className={cn("pl-9", getFieldControlClasses(fieldConfig))}
           disabled={disabled}
         />
       </div>
@@ -383,7 +567,12 @@ const FieldBlock = ({ fieldConfig, form, name, disabled }: FieldProps) => {
   const label = `${fieldConfig.label}${fieldConfig.required ? " *" : ""}`
 
   return (
-    <div className="min-w-0 space-y-2">
+    <div
+      className={cn(
+        "min-w-0 space-y-2",
+        getFieldLayoutClasses(fieldConfig.fieldKey)
+      )}
+    >
       <label className={getFieldClasses(fieldConfig)}>{label}</label>
       {fieldConfig.fieldKey.endsWith("referralName") ? (
         <Controller
@@ -397,6 +586,7 @@ const FieldBlock = ({ fieldConfig, form, name, disabled }: FieldProps) => {
           }}
           render={({ field }) => (
             <ReferralSearchInput
+              fieldConfig={fieldConfig}
               value={field.value as string}
               onChange={field.onChange}
               disabled={disabled}
@@ -644,11 +834,13 @@ const FormSection = ({
 const ComputedInputBlock = ({
   label,
   value,
+  className,
 }: {
   label: string
   value: string
+  className?: string
 }) => (
-  <div className="min-w-0 space-y-2">
+  <div className={cn("min-w-0 space-y-2", className)}>
     <label className="text-sm font-medium text-foreground">{label}</label>
     <Input value={value} readOnly className="bg-background" />
   </div>
@@ -657,9 +849,11 @@ const ComputedInputBlock = ({
 const ComputedAgeBlock = ({
   label,
   value,
+  className,
 }: {
   label: string
   value: string
+  className?: string
 }) => {
   const numericValue = Number(value)
   const progressValue = Number.isFinite(numericValue)
@@ -667,7 +861,7 @@ const ComputedAgeBlock = ({
     : 0
 
   return (
-    <div className="min-w-0 space-y-3 md:col-span-2 xl:col-span-2">
+    <div className={cn("min-w-0 space-y-3", className)}>
       <label className="text-sm font-medium text-foreground">{label}</label>
       <Input
         value={value ? `${value} anos` : "—"}
@@ -980,6 +1174,20 @@ const CustomerForm = ({
     defaultValues: createDefaultValues(),
   })
   const [activeTab, setActiveTab] = useState("main")
+  const {
+    availableDraft,
+    clearDraft,
+    discardDraft,
+    lastSavedAt,
+    restoreDraft,
+    syncDraftAvailability,
+  } = useCustomerFormDraft({
+    form,
+    mode,
+    customerId: customer?.id,
+    activeTab,
+    setActiveTab,
+  })
   const personType = useWatch({
     control: form.control,
     name: "personType",
@@ -998,11 +1206,13 @@ const CustomerForm = ({
   useEffect(() => {
     if (customer) {
       form.reset(mapCustomerToFormValues(customer))
+      syncDraftAvailability()
       return
     }
 
     form.reset(createDefaultValues())
-  }, [customer, form])
+    syncDraftAvailability()
+  }, [customer, form, syncDraftAvailability])
 
   useEffect(() => {
     if (personType === "INDIVIDUAL") {
@@ -1075,6 +1285,10 @@ const CustomerForm = ({
   })
   const derivedCustomerAge = calculateYearsFromDate(birthDate)
   const derivedCompanyAge = calculateYearsFromDate(openingDate)
+  const computedAgeAnchorFields =
+    personType === "COMPANY"
+      ? new Set(["profile.openingDate", "openingDate"])
+      : new Set(["profile.birthDate", "birthDate"])
 
   const handleSubmit = form.handleSubmit(async (values) => {
     const payload = toPayload(values)
@@ -1089,6 +1303,7 @@ const CustomerForm = ({
     }
 
     await onSubmit(payload)
+    clearDraft()
   })
 
   if (customerMetadataQuery.isLoading || responsibleMetadataQuery.isLoading) {
@@ -1152,6 +1367,47 @@ const CustomerForm = ({
         </Card>
       </section>
 
+      {availableDraft ? (
+        <Card className="border-amber-200 bg-amber-50/80">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-4">
+            <div>
+              <div className="text-sm font-semibold text-amber-950">
+                Rascunho local encontrado
+              </div>
+              <div className="text-sm text-amber-900/80">
+                Há alterações salvas neste navegador
+                {formatDraftTimestamp(availableDraft.updatedAt)
+                  ? ` em ${formatDraftTimestamp(availableDraft.updatedAt)}`
+                  : ""}
+                .
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  discardDraft()
+                  toast.success("Rascunho descartado.")
+                }}
+              >
+                Descartar rascunho
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (restoreDraft()) {
+                    toast.success("Rascunho restaurado.")
+                  }
+                }}
+              >
+                Restaurar rascunho
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
@@ -1204,40 +1460,53 @@ const CustomerForm = ({
                             personType
                           )
                         })
-                        .map((fieldConfig) => (
-                          <FieldBlock
-                            key={fieldConfig.fieldKey}
-                            fieldConfig={fieldConfig}
-                            form={form}
-                            name={fieldConfig.fieldKey}
-                            disabled={
-                              mode === "edit" &&
-                              fieldConfig.fieldKey === "personType"
-                            }
-                          />
-                        ))}
-                      {group.section.key === "core" ? (
-                        <ComputedAgeBlock
-                          label={
-                            personType === "COMPANY"
-                              ? "Idade da empresa"
-                              : "Idade do cliente"
+                        .flatMap((fieldConfig) => {
+                          const items = [
+                            <FieldBlock
+                              key={fieldConfig.fieldKey}
+                              fieldConfig={fieldConfig}
+                              form={form}
+                              name={fieldConfig.fieldKey}
+                              disabled={
+                                mode === "edit" &&
+                                fieldConfig.fieldKey === "personType"
+                              }
+                            />,
+                          ]
+
+                          if (
+                            group.section.key === "core" &&
+                            computedAgeAnchorFields.has(fieldConfig.fieldKey)
+                          ) {
+                            items.push(
+                              <ComputedAgeBlock
+                                key="computed-age"
+                                label={
+                                  personType === "COMPANY"
+                                    ? "Idade da empresa"
+                                    : "Idade do cliente"
+                                }
+                                className="md:col-span-2 xl:col-span-2"
+                                value={
+                                  personType === "COMPANY"
+                                    ? derivedCompanyAge ||
+                                      computedValues?.companyAge ||
+                                      ""
+                                    : derivedCustomerAge ||
+                                      computedValues?.customerAge ||
+                                      ""
+                                }
+                              />
+                            )
                           }
-                          value={
-                            personType === "COMPANY"
-                              ? derivedCompanyAge ||
-                                computedValues?.companyAge ||
-                                ""
-                              : derivedCustomerAge ||
-                                computedValues?.customerAge ||
-                                ""
-                          }
-                        />
-                      ) : null}
+
+                          return items
+                        })}
                       {group.section.key === "financial" ? (
                         <>
                           <ComputedInputBlock
                             label="Valor lucratividade"
+                            className="md:col-span-2 xl:col-span-2"
                             value={formatCurrency(
                               computedValues?.profitabilityAmount
                                 ? Number(computedValues.profitabilityAmount)
@@ -1246,6 +1515,7 @@ const CustomerForm = ({
                           />
                           <ComputedInputBlock
                             label="Lucratividade %"
+                            className="md:col-span-2 xl:col-span-2"
                             value={formatPercent(
                               computedValues?.profitabilityPercentage
                                 ? Number(computedValues.profitabilityPercentage)
@@ -1303,9 +1573,16 @@ const CustomerForm = ({
       </datalist>
 
       <div className="sticky bottom-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4">
-        <div className="text-sm text-muted-foreground">
-          Revise obrigatórios em vermelho e campos importantes em verde antes de
-          salvar.
+        <div className="space-y-1 text-sm text-muted-foreground">
+          <div>
+            Revise obrigatórios em vermelho e campos importantes em verde antes
+            de salvar.
+          </div>
+          {formatDraftTimestamp(lastSavedAt) ? (
+            <div className="text-xs text-foreground/70">
+              Rascunho salvo localmente em {formatDraftTimestamp(lastSavedAt)}.
+            </div>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
           <Button asChild variant="outline">
