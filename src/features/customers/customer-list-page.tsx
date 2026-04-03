@@ -298,6 +298,8 @@ export const CustomerListPage = () => {
   const customersQuery = useQuery({
     queryKey: ["customers", page],
     queryFn: () => customerService.list(page, PAGE_SIZE),
+    staleTime: 0,
+    refetchOnMount: "always",
   })
 
   const deleteMutation = useMutation({

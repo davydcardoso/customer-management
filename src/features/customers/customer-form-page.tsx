@@ -1862,6 +1862,8 @@ export const CustomerFormPage = ({ mode }: CustomerFormPageProps) => {
     queryKey: ["customer", customerId],
     queryFn: () => customerService.getById(customerId!),
     enabled: mode === "edit" && Boolean(customerId),
+    staleTime: 0,
+    refetchOnMount: "always",
   })
   const customerPersonType = customerQuery.data
     ? normalizePersonTypeValue(customerQuery.data.personType)
@@ -1873,6 +1875,8 @@ export const CustomerFormPage = ({ mode }: CustomerFormPageProps) => {
       mode === "edit" &&
       Boolean(customerId) &&
       customerPersonType === "COMPANY",
+    staleTime: 0,
+    refetchOnMount: "always",
   })
   const customerData =
     customerQuery.data &&
