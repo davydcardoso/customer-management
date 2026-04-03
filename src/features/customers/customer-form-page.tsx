@@ -19,6 +19,7 @@ import {
   Trash2Icon,
   UserRoundIcon,
   XIcon,
+  MapPinnedIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -66,9 +67,11 @@ import {
   isPersonalFullNameField,
   mapCustomerToFormValues,
   mergeResponsibleMetadata,
+  resolveCustomerFieldName,
   toPayload,
 } from "@/features/customers/lib/customer-form-helpers"
 import { useCustomerFormDraft } from "@/features/customers/lib/use-customer-form-draft"
+import { addressLookupService } from "@/features/customers/address-lookup-service"
 import { customerService } from "@/features/customers/customer-service"
 import type {
   ContactEmailSectionProps,
@@ -208,6 +211,28 @@ const ScalarField = ({ fieldConfig, form, name, disabled }: FieldProps) => {
       render={({ field }) => {
         const value = typeof field.value === "string" ? field.value : ""
 
+        if (
+          fieldConfig.mask === "cep" ||
+          fieldConfig.fieldKey === "address.zipCode"
+        ) {
+          const addressBasePath = name.endsWith(".zipCode")
+            ? name.slice(0, -".zipCode".length)
+            : null
+
+          return (
+            <ZipCodeLookupField
+              form={form}
+              field={field}
+              fieldConfig={fieldConfig}
+              value={value}
+              name={name}
+              addressBasePath={addressBasePath}
+              disabled={disabled}
+              errorMessage={error?.message}
+            />
+          )
+        }
+
         if (fieldConfig.inputType === "textarea") {
           return (
             <div className="space-y-2">
@@ -222,9 +247,9 @@ const ScalarField = ({ fieldConfig, form, name, disabled }: FieldProps) => {
                 className={
                   fieldConfig.readOnly
                     ? cn(
-                        getFieldControlClasses(fieldConfig),
-                        "bg-background text-muted-foreground"
-                      )
+                      getFieldControlClasses(fieldConfig),
+                      "bg-background text-muted-foreground"
+                    )
                     : getFieldControlClasses(fieldConfig)
                 }
               />
@@ -291,7 +316,7 @@ const ScalarField = ({ fieldConfig, form, name, disabled }: FieldProps) => {
         const inputType = fieldConfig.inputType === "date" ? "date" : "text"
         const inputMode =
           fieldConfig.inputType === "number" ||
-          fieldConfig.inputType === "currency"
+            fieldConfig.inputType === "currency"
             ? "decimal"
             : fieldConfig.inputType === "document"
               ? "numeric"
@@ -334,9 +359,9 @@ const ScalarField = ({ fieldConfig, form, name, disabled }: FieldProps) => {
               className={
                 fieldConfig.readOnly
                   ? cn(
-                      getFieldControlClasses(fieldConfig),
-                      "bg-background text-muted-foreground"
-                    )
+                    getFieldControlClasses(fieldConfig),
+                    "bg-background text-muted-foreground"
+                  )
                   : getFieldControlClasses(fieldConfig)
               }
             />
@@ -350,6 +375,142 @@ const ScalarField = ({ fieldConfig, form, name, disabled }: FieldProps) => {
   )
 }
 
+const ZipCodeLookupField = ({
+  form,
+  field,
+  fieldConfig,
+  value,
+  name,
+  addressBasePath,
+  disabled,
+  errorMessage,
+}: {
+  form: UseFormReturn<CustomerFormValues>
+  field: {
+    value: unknown
+    onChange: (...event: unknown[]) => void
+    onBlur: () => void
+  }
+  fieldConfig: FieldConfig
+  value: string
+  name: string
+  addressBasePath: string | null
+  disabled?: boolean
+  errorMessage?: string
+}) => {
+  const [isLookingUp, setIsLookingUp] = useState(false)
+
+  const handleLookup = async () => {
+    if (!addressBasePath) {
+      return
+    }
+
+    try {
+      setIsLookingUp(true)
+      const result = await addressLookupService.findByZipCode(value)
+
+      form.setValue(name as never, result.zipCode as never, {
+        shouldDirty: true,
+      })
+      form.setValue(
+        `${addressBasePath}.street` as never,
+        result.street as never,
+        {
+          shouldDirty: true,
+        }
+      )
+      form.setValue(
+        `${addressBasePath}.complement` as never,
+        result.complement as never,
+        {
+          shouldDirty: true,
+        }
+      )
+      form.setValue(
+        `${addressBasePath}.district` as never,
+        result.district as never,
+        {
+          shouldDirty: true,
+        }
+      )
+      form.setValue(`${addressBasePath}.city` as never, result.city as never, {
+        shouldDirty: true,
+      })
+      form.setValue(
+        `${addressBasePath}.state` as never,
+        result.state as never,
+        {
+          shouldDirty: true,
+        }
+      )
+      form.setValue(
+        `${addressBasePath}.cityCode` as never,
+        result.cityCode as never,
+        {
+          shouldDirty: true,
+        }
+      )
+      toast.success("Endereço carregado pelo CEP.")
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.payload?.message || error.message
+          : error instanceof Error
+            ? error.message
+            : "Não foi possível buscar o CEP."
+
+      toast.error(message)
+    } finally {
+      setIsLookingUp(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+        <Input
+          value={value}
+          onBlur={() => {
+            field.onBlur()
+            void form.trigger(name as never)
+          }}
+          onChange={(event) =>
+            field.onChange(applyMask(fieldConfig.mask, event.target.value))
+          }
+          placeholder={fieldConfig.placeholder || fieldConfig.label}
+          aria-invalid={Boolean(errorMessage)}
+          readOnly={fieldConfig.readOnly}
+          disabled={disabled || isLookingUp}
+          className={
+            fieldConfig.readOnly
+              ? cn(
+                getFieldControlClasses(fieldConfig),
+                "bg-background text-muted-foreground"
+              )
+              : getFieldControlClasses(fieldConfig)
+          }
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void handleLookup()}
+          disabled={disabled || isLookingUp || fieldConfig.readOnly}
+          className="h-8"
+        >
+          {isLookingUp
+            ? <Spinner className="size-3.5" />
+            : <MapPinnedIcon className="size-3.5" />
+          }
+        </Button>
+      </div>
+      {errorMessage ? (
+        <p className="text-xs text-rose-600">{errorMessage}</p>
+      ) : null}
+    </div>
+  )
+}
+
 const SectionGrid = ({
   children,
   wide,
@@ -358,9 +519,8 @@ const SectionGrid = ({
   wide?: boolean
 }) => (
   <div
-    className={`grid gap-4 ${
-      wide ? "md:grid-cols-6 xl:grid-cols-12" : "md:grid-cols-6 xl:grid-cols-12"
-    }`}
+    className={`grid gap-4 ${wide ? "md:grid-cols-6 xl:grid-cols-12" : "md:grid-cols-6 xl:grid-cols-12"
+      }`}
   >
     {children}
   </div>
@@ -1287,8 +1447,8 @@ const CustomerForm = ({
   const derivedCompanyAge = calculateYearsFromDate(openingDate)
   const computedAgeAnchorFields =
     personType === "COMPANY"
-      ? new Set(["profile.openingDate", "openingDate"])
-      : new Set(["profile.birthDate", "birthDate"])
+      ? new Set(["profile.openingDate"])
+      : new Set(["profile.birthDate"])
 
   const handleSubmit = form.handleSubmit(async (values) => {
     const payload = toPayload(values)
@@ -1461,12 +1621,14 @@ const CustomerForm = ({
                           )
                         })
                         .flatMap((fieldConfig) => {
+                          const fieldName =
+                            resolveCustomerFieldName(fieldConfig)
                           const items = [
                             <FieldBlock
                               key={fieldConfig.fieldKey}
                               fieldConfig={fieldConfig}
                               form={form}
-                              name={fieldConfig.fieldKey}
+                              name={fieldName}
                               disabled={
                                 mode === "edit" &&
                                 fieldConfig.fieldKey === "personType"
@@ -1476,7 +1638,7 @@ const CustomerForm = ({
 
                           if (
                             group.section.key === "core" &&
-                            computedAgeAnchorFields.has(fieldConfig.fieldKey)
+                            computedAgeAnchorFields.has(fieldName)
                           ) {
                             items.push(
                               <ComputedAgeBlock
@@ -1490,11 +1652,11 @@ const CustomerForm = ({
                                 value={
                                   personType === "COMPANY"
                                     ? derivedCompanyAge ||
-                                      computedValues?.companyAge ||
-                                      ""
+                                    computedValues?.companyAge ||
+                                    ""
                                     : derivedCustomerAge ||
-                                      computedValues?.customerAge ||
-                                      ""
+                                    computedValues?.customerAge ||
+                                    ""
                                 }
                               />
                             )

@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { UseFormReturn } from "react-hook-form"
 
+import {
+  createCommunicationPreferences,
+  createDefaultValues,
+  createEmptyContact,
+  createEmptyEmail,
+  createEmptyResponsible,
+} from "@/features/customers/lib/customer-form-helpers"
 import type { CustomerFormValues } from "@/features/customers/types/customer-form-types"
 
 const DRAFT_STORAGE_PREFIX = "zr:customer-form-draft"
@@ -53,6 +60,193 @@ const readDraft = (storageKey: string): CustomerFormDraft | null => {
   }
 }
 
+const LEGACY_CORE_KEYS = [
+  "active",
+  "customerSince",
+  "classification",
+  "referralSource",
+  "referralName",
+  "allowsInvoice",
+  "hasRestriction",
+  "isFinalConsumer",
+  "isRuralProducer",
+  "notes",
+] as const
+
+const LEGACY_PROFILE_KEYS = [
+  "cpf",
+  "rg",
+  "fullName",
+  "nickname",
+  "birthDate",
+  "gender",
+  "familyRelationship",
+  "profession",
+  "driverLicenseExpiresAt",
+  "cnpj",
+  "stateRegistration",
+  "corporateName",
+  "tradeName",
+  "municipalRegistration",
+  "suframaRegistration",
+  "taxpayerType",
+  "openingDate",
+  "companySegment",
+  "issWithheld",
+] as const
+
+const LEGACY_FINANCIAL_KEYS = [
+  "creditLimit",
+  "amountSpent",
+  "balance",
+  "consumedAmount",
+  "costAmount",
+  "commissionPercentage",
+  "paymentDay",
+  "pixKeyOrDescription",
+] as const
+
+const LEGACY_ADDRESS_KEYS = [
+  "zipCode",
+  "street",
+  "number",
+  "complement",
+  "district",
+  "city",
+  "state",
+  "cityCode",
+  "stateCode",
+  "reference",
+] as const
+
+const coerceLegacyDraftValues = (values?: Partial<CustomerFormValues>) => {
+  if (!values) {
+    return values
+  }
+
+  const draftValues = values as Partial<CustomerFormValues> &
+    Record<string, unknown>
+
+  return {
+    ...draftValues,
+    core: {
+      ...(draftValues.core ?? {}),
+      ...Object.fromEntries(
+        LEGACY_CORE_KEYS.flatMap((key) =>
+          key in draftValues ? [[key, draftValues[key]]] : []
+        )
+      ),
+    },
+    profile: {
+      ...(draftValues.profile ?? {}),
+      ...Object.fromEntries(
+        LEGACY_PROFILE_KEYS.flatMap((key) =>
+          key in draftValues ? [[key, draftValues[key]]] : []
+        )
+      ),
+    },
+    financial: {
+      ...(draftValues.financial ?? {}),
+      ...Object.fromEntries(
+        LEGACY_FINANCIAL_KEYS.flatMap((key) =>
+          key in draftValues ? [[key, draftValues[key]]] : []
+        )
+      ),
+    },
+    address: {
+      ...(draftValues.address ?? {}),
+      ...Object.fromEntries(
+        LEGACY_ADDRESS_KEYS.flatMap((key) =>
+          key in draftValues ? [[key, draftValues[key]]] : []
+        )
+      ),
+    },
+  }
+}
+
+const hydrateDraftValues = (
+  values?: Partial<CustomerFormValues>
+): CustomerFormValues => {
+  const defaults = createDefaultValues()
+  const normalizedValues = coerceLegacyDraftValues(values)
+
+  return {
+    ...defaults,
+    ...normalizedValues,
+    core: {
+      ...defaults.core,
+      ...(normalizedValues?.core ?? {}),
+    },
+    profile: {
+      ...defaults.profile,
+      ...(normalizedValues?.profile ?? {}),
+    },
+    financial: {
+      ...defaults.financial,
+      ...(normalizedValues?.financial ?? {}),
+    },
+    address: {
+      ...defaults.address,
+      ...(normalizedValues?.address ?? {}),
+    },
+    contacts: normalizedValues?.contacts?.length
+      ? normalizedValues.contacts.map((contact) => ({
+          ...createEmptyContact(),
+          ...contact,
+        }))
+      : defaults.contacts,
+    emails: normalizedValues?.emails?.length
+      ? normalizedValues.emails.map((email) => ({
+          ...createEmptyEmail(),
+          ...email,
+        }))
+      : defaults.emails,
+    communicationPreferences: normalizedValues?.communicationPreferences?.length
+      ? createCommunicationPreferences().map((preference) => {
+          const existingPreference =
+            normalizedValues.communicationPreferences?.find(
+              (item) =>
+                item.channel === preference.channel &&
+                item.topic === preference.topic
+            )
+
+          return existingPreference
+            ? {
+                ...preference,
+                ...existingPreference,
+              }
+            : preference
+        })
+      : defaults.communicationPreferences,
+    responsibles: normalizedValues?.responsibles?.length
+      ? normalizedValues.responsibles.map((responsible) => ({
+          ...createEmptyResponsible(),
+          ...responsible,
+          address: {
+            ...createEmptyResponsible().address,
+            ...(responsible.address ?? {}),
+          },
+          contacts: responsible.contacts?.length
+            ? responsible.contacts.map((contact) => ({
+                ...createEmptyContact(),
+                ...contact,
+              }))
+            : [createEmptyContact()],
+          emails: responsible.emails?.length
+            ? responsible.emails.map((email) => ({
+                ...createEmptyEmail(),
+                ...email,
+              }))
+            : [createEmptyEmail()],
+        }))
+      : defaults.responsibles,
+    computed: {
+      ...defaults.computed,
+      ...(normalizedValues?.computed ?? {}),
+    },
+  }
+}
+
 export const useCustomerFormDraft = ({
   form,
   mode,
@@ -64,9 +258,8 @@ export const useCustomerFormDraft = ({
     () => buildDraftKey(mode, customerId),
     [customerId, mode]
   )
-  const [availableDraft, setAvailableDraft] = useState<CustomerFormDraft | null>(
-    null
-  )
+  const [availableDraft, setAvailableDraft] =
+    useState<CustomerFormDraft | null>(null)
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
   const isHydratingRef = useRef(true)
   const saveTimeoutRef = useRef<number | null>(null)
@@ -84,7 +277,7 @@ export const useCustomerFormDraft = ({
         version: DRAFT_VERSION,
         updatedAt: new Date().toISOString(),
         activeTab,
-        values,
+        values: hydrateDraftValues(values),
       }
 
       localStorage.setItem(storageKey, JSON.stringify(draft))
@@ -118,7 +311,7 @@ export const useCustomerFormDraft = ({
   }, [clearDraft])
 
   const restoreDraft = useCallback(() => {
-    const draft = readDraft(storageKey)
+    const draft = availableDraft ?? readDraft(storageKey)
 
     if (!draft) {
       setAvailableDraft(null)
@@ -129,7 +322,7 @@ export const useCustomerFormDraft = ({
     clearPendingSave()
 
     form.reset({
-      ...draft.values,
+      ...hydrateDraftValues(draft.values),
       computed: form.getValues("computed"),
     })
 
@@ -147,17 +340,17 @@ export const useCustomerFormDraft = ({
     }, 0)
 
     return true
-  }, [clearPendingSave, form, setActiveTab, storageKey])
+  }, [availableDraft, clearPendingSave, form, setActiveTab, storageKey])
 
   useEffect(() => {
-    const subscription = form.watch((values) => {
-      if (isHydratingRef.current) {
+    const subscription = form.watch(() => {
+      if (isHydratingRef.current || availableDraft) {
         return
       }
 
       clearPendingSave()
       saveTimeoutRef.current = window.setTimeout(() => {
-        persistDraft(values as CustomerFormValues)
+        persistDraft(form.getValues())
       }, SAVE_DEBOUNCE_MS)
     })
 
@@ -165,11 +358,11 @@ export const useCustomerFormDraft = ({
       clearPendingSave()
       subscription.unsubscribe()
     }
-  }, [clearPendingSave, form, persistDraft])
+  }, [availableDraft, clearPendingSave, form, persistDraft])
 
   useEffect(() => {
     const flushDraft = () => {
-      if (isHydratingRef.current) {
+      if (isHydratingRef.current || availableDraft) {
         return
       }
 
@@ -190,7 +383,7 @@ export const useCustomerFormDraft = ({
       window.removeEventListener("pagehide", flushDraft)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
-  }, [clearPendingSave, form, persistDraft])
+  }, [availableDraft, clearPendingSave, form, persistDraft])
 
   return {
     availableDraft,

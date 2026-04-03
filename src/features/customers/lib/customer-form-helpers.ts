@@ -25,6 +25,25 @@ import type {
 
 export const EMPTY_SELECT_VALUE = "__empty__"
 
+const MAIN_FORM_NESTED_SECTIONS = new Set([
+  "core",
+  "profile",
+  "financial",
+  "address",
+])
+
+export const resolveCustomerFieldName = (fieldConfig: FieldConfig) => {
+  if (
+    fieldConfig.fieldKey === "personType" ||
+    fieldConfig.fieldKey.includes(".") ||
+    !MAIN_FORM_NESTED_SECTIONS.has(fieldConfig.section)
+  ) {
+    return fieldConfig.fieldKey
+  }
+
+  return `${fieldConfig.section}.${fieldConfig.fieldKey}`
+}
+
 const fallbackResponsibleFields: FieldConfig[] = [
   {
     fieldKey: "cpf",
