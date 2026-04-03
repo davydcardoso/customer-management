@@ -69,7 +69,7 @@ import { cn } from "@/lib/utils"
 
 const PAGE_SIZE = 10
 const ACTIONS_COLUMN_WIDTH = 88
-const COLUMN_STORAGE_KEY = "customer-list-columns-v1"
+const COLUMN_STORAGE_KEY = "customer-list-columns-v2"
 
 type DataColumnId =
   | "personType"
@@ -77,6 +77,7 @@ type DataColumnId =
   | "document"
   | "contact"
   | "email"
+  | "address"
   | "location"
   | "customerSince"
 
@@ -91,6 +92,29 @@ type ColumnDefinition = {
   defaultWidth: number
   minWidth: number
   render: (customer: CustomerResponse) => ReactNode
+}
+
+const formatCustomerAddress = (customer: CustomerResponse) => {
+  const address = customer.address
+
+  if (!address) {
+    return "—"
+  }
+
+  const primaryLine = [
+    address.street,
+    address.number,
+    address.complement,
+    address.district,
+  ]
+    .filter(Boolean)
+    .join(", ")
+
+  const secondaryLine = [address.city, address.state, address.zipCode]
+    .filter(Boolean)
+    .join(" - ")
+
+  return [primaryLine, secondaryLine].filter(Boolean).join(" | ") || "—"
 }
 
 const COLUMN_DEFINITIONS: Record<DataColumnId, ColumnDefinition> = {
@@ -137,6 +161,16 @@ const COLUMN_DEFINITIONS: Record<DataColumnId, ColumnDefinition> = {
     defaultWidth: 230,
     minWidth: 170,
     render: (customer) => customer.emails[0]?.email || "—",
+  },
+  address: {
+    label: "Endereço",
+    defaultWidth: 360,
+    minWidth: 260,
+    render: (customer) => (
+      <span className="block leading-6 text-foreground">
+        {formatCustomerAddress(customer)}
+      </span>
+    ),
   },
   location: {
     label: "Cidade / Estado",

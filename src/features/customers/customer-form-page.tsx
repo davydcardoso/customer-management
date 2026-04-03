@@ -247,9 +247,9 @@ const ScalarField = ({ fieldConfig, form, name, disabled }: FieldProps) => {
                 className={
                   fieldConfig.readOnly
                     ? cn(
-                      getFieldControlClasses(fieldConfig),
-                      "bg-background text-muted-foreground"
-                    )
+                        getFieldControlClasses(fieldConfig),
+                        "bg-background text-muted-foreground"
+                      )
                     : getFieldControlClasses(fieldConfig)
                 }
               />
@@ -316,7 +316,7 @@ const ScalarField = ({ fieldConfig, form, name, disabled }: FieldProps) => {
         const inputType = fieldConfig.inputType === "date" ? "date" : "text"
         const inputMode =
           fieldConfig.inputType === "number" ||
-            fieldConfig.inputType === "currency"
+          fieldConfig.inputType === "currency"
             ? "decimal"
             : fieldConfig.inputType === "document"
               ? "numeric"
@@ -359,9 +359,9 @@ const ScalarField = ({ fieldConfig, form, name, disabled }: FieldProps) => {
               className={
                 fieldConfig.readOnly
                   ? cn(
-                    getFieldControlClasses(fieldConfig),
-                    "bg-background text-muted-foreground"
-                  )
+                      getFieldControlClasses(fieldConfig),
+                      "bg-background text-muted-foreground"
+                    )
                   : getFieldControlClasses(fieldConfig)
               }
             />
@@ -484,9 +484,9 @@ const ZipCodeLookupField = ({
           className={
             fieldConfig.readOnly
               ? cn(
-                getFieldControlClasses(fieldConfig),
-                "bg-background text-muted-foreground"
-              )
+                  getFieldControlClasses(fieldConfig),
+                  "bg-background text-muted-foreground"
+                )
               : getFieldControlClasses(fieldConfig)
           }
         />
@@ -498,10 +498,11 @@ const ZipCodeLookupField = ({
           disabled={disabled || isLookingUp || fieldConfig.readOnly}
           className="h-8"
         >
-          {isLookingUp
-            ? <Spinner className="size-3.5" />
-            : <MapPinnedIcon className="size-3.5" />
-          }
+          {isLookingUp ? (
+            <Spinner className="size-3.5" />
+          ) : (
+            <MapPinnedIcon className="size-3.5" />
+          )}
         </Button>
       </div>
       {errorMessage ? (
@@ -519,8 +520,9 @@ const SectionGrid = ({
   wide?: boolean
 }) => (
   <div
-    className={`grid gap-4 ${wide ? "md:grid-cols-6 xl:grid-cols-12" : "md:grid-cols-6 xl:grid-cols-12"
-      }`}
+    className={`grid gap-4 ${
+      wide ? "md:grid-cols-6 xl:grid-cols-12" : "md:grid-cols-6 xl:grid-cols-12"
+    }`}
   >
     {children}
   </div>
@@ -1636,10 +1638,7 @@ const CustomerForm = ({
                             />,
                           ]
 
-                          if (
-                            group.section.key === "core" &&
-                            computedAgeAnchorFields.has(fieldName)
-                          ) {
+                          if (computedAgeAnchorFields.has(fieldName)) {
                             items.push(
                               <ComputedAgeBlock
                                 key="computed-age"
@@ -1652,11 +1651,11 @@ const CustomerForm = ({
                                 value={
                                   personType === "COMPANY"
                                     ? derivedCompanyAge ||
-                                    computedValues?.companyAge ||
-                                    ""
+                                      computedValues?.companyAge ||
+                                      ""
                                     : derivedCustomerAge ||
-                                    computedValues?.customerAge ||
-                                    ""
+                                      computedValues?.customerAge ||
+                                      ""
                                 }
                               />
                             )
