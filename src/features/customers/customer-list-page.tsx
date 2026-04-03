@@ -93,6 +93,7 @@ type ColumnDefinition = {
   defaultWidth: number
   minWidth: number
   render: (customer: CustomerResponse) => ReactNode
+  getTextValue: (customer: CustomerResponse) => string
 }
 
 const formatCustomerAddress = (customer: CustomerResponse) => {
@@ -123,6 +124,8 @@ const COLUMN_DEFINITIONS: Record<DataColumnId, ColumnDefinition> = {
     label: "Tipo",
     defaultWidth: 92,
     minWidth: 80,
+    getTextValue: (customer) =>
+      customer.personType === "INDIVIDUAL" ? "PF" : "PJ",
     render: (customer) => (
       <Badge
         className={
@@ -139,6 +142,7 @@ const COLUMN_DEFINITIONS: Record<DataColumnId, ColumnDefinition> = {
     label: "Cliente",
     defaultWidth: 280,
     minWidth: 180,
+    getTextValue: (customer) => getCustomerDisplayName(customer),
     render: (customer) => (
       <span className="font-medium text-foreground">
         {getCustomerDisplayName(customer)}
@@ -149,26 +153,30 @@ const COLUMN_DEFINITIONS: Record<DataColumnId, ColumnDefinition> = {
     label: "Documento",
     defaultWidth: 180,
     minWidth: 140,
+    getTextValue: (customer) => getCustomerDocument(customer),
     render: (customer) => getCustomerDocument(customer),
   },
   contact: {
     label: "Contato principal",
     defaultWidth: 180,
     minWidth: 150,
+    getTextValue: (customer) => customer.contacts[0]?.value || "—",
     render: (customer) => customer.contacts[0]?.value || "—",
   },
   email: {
     label: "E-mail principal",
     defaultWidth: 230,
     minWidth: 170,
+    getTextValue: (customer) => customer.emails[0]?.email || "—",
     render: (customer) => customer.emails[0]?.email || "—",
   },
   address: {
     label: "Endereço",
     defaultWidth: 360,
     minWidth: 260,
+    getTextValue: (customer) => formatCustomerAddress(customer),
     render: (customer) => (
-      <span className="block leading-6 text-foreground">
+      <span className="block text-foreground">
         {formatCustomerAddress(customer)}
       </span>
     ),
@@ -177,6 +185,10 @@ const COLUMN_DEFINITIONS: Record<DataColumnId, ColumnDefinition> = {
     label: "Cidade / Estado",
     defaultWidth: 180,
     minWidth: 150,
+    getTextValue: (customer) =>
+      [customer.address?.city, customer.address?.state]
+        .filter(Boolean)
+        .join(" / ") || "—",
     render: (customer) =>
       [customer.address?.city, customer.address?.state]
         .filter(Boolean)
@@ -186,6 +198,7 @@ const COLUMN_DEFINITIONS: Record<DataColumnId, ColumnDefinition> = {
     label: "Cliente desde",
     defaultWidth: 150,
     minWidth: 130,
+    getTextValue: (customer) => formatDate(customer.core.customerSince || null),
     render: (customer) => formatDate(customer.core.customerSince || null),
   },
 }
@@ -636,9 +649,11 @@ export const CustomerListPage = () => {
                             setDraggingColumnId(null)
                             setDragTargetColumnId(null)
                           }}
-                          className="group flex cursor-grab items-center gap-2 pr-3 active:cursor-grabbing"
+                          className="group flex min-w-0 cursor-grab items-center gap-2 pr-3 active:cursor-grabbing"
                         >
-                          <span>{COLUMN_DEFINITIONS[column.id].label}</span>
+                          <span className="truncate">
+                            {COLUMN_DEFINITIONS[column.id].label}
+                          </span>
                           <GripVerticalIcon className="size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                         </div>
                         <button
@@ -691,8 +706,18 @@ export const CustomerListPage = () => {
                       </TableCell>
 
                       {visibleColumns.map((column) => (
-                        <TableCell key={`${customer.id}-${column.id}`}>
-                          {COLUMN_DEFINITIONS[column.id].render(customer)}
+                        <TableCell
+                          key={`${customer.id}-${column.id}`}
+                          className="overflow-hidden"
+                        >
+                          <div
+                            className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
+                            title={COLUMN_DEFINITIONS[column.id].getTextValue(
+                              customer
+                            )}
+                          >
+                            {COLUMN_DEFINITIONS[column.id].render(customer)}
+                          </div>
                         </TableCell>
                       ))}
                     </TableRow>
