@@ -10,6 +10,7 @@ import type {
 export type BooleanFieldValue = "" | "true" | "false"
 
 export type ContactFormValues = {
+  id?: string
   value: string
   type: ContactType
   isWhatsapp: boolean
@@ -17,6 +18,7 @@ export type ContactFormValues = {
 }
 
 export type EmailFormValues = {
+  id?: string
   email: string
   label: string
 }
@@ -35,6 +37,7 @@ export type AddressFormValues = {
 }
 
 export type ResponsibleFormValues = {
+  id?: string
   fullName: string
   cpf: string
   rg: string

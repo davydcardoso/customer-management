@@ -675,6 +675,7 @@ export const mapContacts = (contacts: ContactFormValues[]): ContactInput[] =>
   contacts
     .filter((contact) => contact.value.trim().length > 0)
     .map((contact) => ({
+      id: contact.id,
       value:
         contact.type === "MESSAGING"
           ? contact.value.trim()
@@ -688,6 +689,7 @@ export const mapEmails = (emails: EmailFormValues[]) =>
   emails
     .filter((email) => email.email.trim().length > 0)
     .map((email) => ({
+      id: email.id,
       email: email.email.trim().toLowerCase(),
       label: normalizeText(email.label),
     }))
@@ -702,6 +704,7 @@ export const mapResponsiblePayload = (
   const address = normalizeAddress(values.address)
 
   return {
+    id: values.id,
     fullName: values.fullName.trim(),
     cpf: normalizeText(digitsOnly(values.cpf)),
     rg: normalizeText(values.rg),
@@ -757,6 +760,7 @@ export const toPayload = (
   const emails = mapEmails(values.emails)
   const communicationPreferences = values.communicationPreferences.map(
     (preference) => ({
+      id: preference.id,
       channel: preference.channel,
       topic: preference.topic,
       enabled: preference.enabled,
@@ -916,16 +920,22 @@ export const mapCustomerToFormValues = (
       pixKeyOrDescription: customer.financial?.pixKeyOrDescription || "",
     },
     address: mapAddressValues(customer.address),
-    contacts: customer.contacts.map((contact) => ({
-      value: contact.value,
-      type: contact.type,
-      isWhatsapp: Boolean(contact.isWhatsapp),
-      label: contact.label || "",
-    })) || [createEmptyContact()],
-    emails: customer.emails.map((email) => ({
-      email: email.email,
-      label: email.label || "",
-    })) || [createEmptyEmail()],
+    contacts: customer.contacts.length
+      ? customer.contacts.map((contact) => ({
+          id: contact.id,
+          value: contact.value,
+          type: contact.type,
+          isWhatsapp: Boolean(contact.isWhatsapp),
+          label: contact.label || "",
+        }))
+      : [createEmptyContact()],
+    emails: customer.emails.length
+      ? customer.emails.map((email) => ({
+          id: email.id,
+          email: email.email,
+          label: email.label || "",
+        }))
+      : [createEmptyEmail()],
     communicationPreferences: createCommunicationPreferences().map(
       (preference) => {
         const existing = customer.communicationPreferences.find(
@@ -936,6 +946,7 @@ export const mapCustomerToFormValues = (
 
         return existing
           ? {
+              id: existing.id,
               channel: existing.channel,
               topic: existing.topic,
               enabled: existing.enabled,
@@ -944,6 +955,7 @@ export const mapCustomerToFormValues = (
       }
     ),
     responsibles: customer.responsibles.map((responsible) => ({
+      id: responsible.id,
       fullName: responsible.fullName,
       cpf: responsible.cpf || "",
       rg: responsible.rg || "",
@@ -960,16 +972,22 @@ export const mapCustomerToFormValues = (
       referralName: responsible.referralName || "",
       notes: responsible.notes || "",
       address: mapAddressValues(responsible.address),
-      contacts: responsible.contacts.map((contact) => ({
-        value: contact.value,
-        type: contact.type,
-        isWhatsapp: Boolean(contact.isWhatsapp),
-        label: contact.label || "",
-      })) || [createEmptyContact()],
-      emails: responsible.emails.map((email) => ({
-        email: email.email,
-        label: email.label || "",
-      })) || [createEmptyEmail()],
+      contacts: responsible.contacts.length
+        ? responsible.contacts.map((contact) => ({
+            id: contact.id,
+            value: contact.value,
+            type: contact.type,
+            isWhatsapp: Boolean(contact.isWhatsapp),
+            label: contact.label || "",
+          }))
+        : [createEmptyContact()],
+      emails: responsible.emails.length
+        ? responsible.emails.map((email) => ({
+            id: email.id,
+            email: email.email,
+            label: email.label || "",
+          }))
+        : [createEmptyEmail()],
     })),
     computed: {
       customerAge:

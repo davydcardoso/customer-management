@@ -9,9 +9,9 @@ import {
   createEmptyResponsible,
   normalizePersonTypeValue,
 } from "@/features/customers/lib/customer-form-helpers"
+import { buildCustomerFormDraftKey } from "@/features/customers/lib/customer-form-draft-storage"
 import type { CustomerFormValues } from "@/features/customers/types/customer-form-types"
 
-const DRAFT_STORAGE_PREFIX = "zr:customer-form-draft"
 const DRAFT_VERSION = 1
 const DRAFT_TTL_MS = 1000 * 60 * 60 * 24 * 7
 const SAVE_DEBOUNCE_MS = 300
@@ -30,9 +30,6 @@ type UseCustomerFormDraftArgs = {
   activeTab: string
   setActiveTab: (value: string) => void
 }
-
-const buildDraftKey = (mode: "create" | "edit", customerId?: string) =>
-  `${DRAFT_STORAGE_PREFIX}:${mode}:${customerId ?? "new"}`
 
 const readDraft = (storageKey: string): CustomerFormDraft | null => {
   const rawValue = localStorage.getItem(storageKey)
@@ -260,7 +257,7 @@ export const useCustomerFormDraft = ({
   setActiveTab,
 }: UseCustomerFormDraftArgs) => {
   const storageKey = useMemo(
-    () => buildDraftKey(mode, customerId),
+    () => buildCustomerFormDraftKey(mode, customerId),
     [customerId, mode]
   )
   const [availableDraft, setAvailableDraft] =

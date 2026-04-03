@@ -111,6 +111,7 @@ export type AddressInput = {
 }
 
 export type ContactInput = {
+  id?: string
   value: string
   type: ContactType
   isWhatsapp?: boolean
@@ -122,6 +123,7 @@ export type ContactResponse = ContactInput & {
 }
 
 export type EmailInput = {
+  id?: string
   email: string
   label?: Nullable<string>
 }
@@ -131,6 +133,7 @@ export type EmailResponse = EmailInput & {
 }
 
 export type CommunicationPreferenceInput = {
+  id?: string
   channel: CommunicationChannel
   topic: CommunicationTopic
   enabled: boolean
@@ -166,6 +169,7 @@ export type CompanyProfileInput = {
 }
 
 export type ResponsibleInput = {
+  id?: string
   fullName: string
   cpf?: Nullable<string>
   rg?: Nullable<string>
@@ -186,7 +190,10 @@ export type ResponsibleInput = {
   emails?: EmailInput[]
 }
 
-export type ResponsibleResponse = Omit<ResponsibleInput, "address" | "contacts" | "emails"> & {
+export type ResponsibleResponse = Omit<
+  ResponsibleInput,
+  "address" | "contacts" | "emails"
+> & {
   id: string
   active: boolean
   address: Nullable<AddressInput>

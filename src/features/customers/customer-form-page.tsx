@@ -67,9 +67,11 @@ import {
   isPersonalFullNameField,
   mapCustomerToFormValues,
   mergeResponsibleMetadata,
+  normalizePersonTypeValue,
   resolveCustomerFieldName,
   toPayload,
 } from "@/features/customers/lib/customer-form-helpers"
+import { clearCustomerFormDrafts } from "@/features/customers/lib/customer-form-draft-storage"
 import { useCustomerFormDraft } from "@/features/customers/lib/use-customer-form-draft"
 import { addressLookupService } from "@/features/customers/address-lookup-service"
 import { customerService } from "@/features/customers/customer-service"
@@ -780,6 +782,7 @@ const ContactsEditor = ({
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: name as never,
+    keyName: "formRowId",
   })
   const watchedContacts = useWatch({
     control: form.control,
@@ -802,7 +805,7 @@ const ContactsEditor = ({
 
           return (
             <div
-              key={row.id}
+              key={row.formRowId}
               className="grid gap-3 border-b border-border/70 pb-4 last:border-b-0 last:pb-0 md:grid-cols-[minmax(0,1.4fr)_180px_140px_minmax(0,1fr)_auto] md:items-start"
             >
               <Controller
@@ -899,6 +902,7 @@ const EmailsEditor = ({
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: name as never,
+    keyName: "formRowId",
   })
 
   return (
@@ -910,7 +914,7 @@ const EmailsEditor = ({
       <div className="space-y-4">
         {fields.map((row, index) => (
           <div
-            key={row.id}
+            key={row.formRowId}
             className="grid gap-3 border-b border-border/70 pb-4 last:border-b-0 last:pb-0 md:grid-cols-[minmax(0,1.5fr)_220px_auto] md:items-start"
           >
             <Controller
@@ -1034,6 +1038,59 @@ const ComputedAgeBlock = ({
       <Progress value={progressValue} className="h-2 bg-secondary" />
     </div>
   )
+}
+
+const areEqualByJson = (left: unknown, right: unknown) =>
+  JSON.stringify(left) === JSON.stringify(right)
+
+const buildCustomerUpdatePayload = (
+  values: CustomerFormValues,
+  customer: CustomerResponse
+): CustomerUpdateInput => {
+  const nextPayload = toPayload(values) as CustomerUpdateInput
+  const currentPayload = toPayload(
+    mapCustomerToFormValues(customer)
+  ) as CustomerUpdateInput
+  const payload: CustomerUpdateInput = {}
+
+  if (!areEqualByJson(nextPayload.core, currentPayload.core)) {
+    payload.core = nextPayload.core
+  }
+
+  if (!areEqualByJson(nextPayload.profile, currentPayload.profile)) {
+    payload.profile = nextPayload.profile
+  }
+
+  if (!areEqualByJson(nextPayload.financial, currentPayload.financial)) {
+    payload.financial = nextPayload.financial
+  }
+
+  if (!areEqualByJson(nextPayload.address, currentPayload.address)) {
+    payload.address = nextPayload.address
+  }
+
+  if (!areEqualByJson(nextPayload.contacts, currentPayload.contacts)) {
+    payload.contacts = nextPayload.contacts
+  }
+
+  if (!areEqualByJson(nextPayload.emails, currentPayload.emails)) {
+    payload.emails = nextPayload.emails
+  }
+
+  if (
+    !areEqualByJson(
+      nextPayload.communicationPreferences,
+      currentPayload.communicationPreferences
+    )
+  ) {
+    payload.communicationPreferences = nextPayload.communicationPreferences
+  }
+
+  if (!areEqualByJson(nextPayload.responsibles, currentPayload.responsibles)) {
+    payload.responsibles = nextPayload.responsibles
+  }
+
+  return payload
 }
 
 const ContactEmailSection = ({
@@ -1211,6 +1268,7 @@ const ResponsiblesEditor = ({
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "responsibles",
+    keyName: "formRowId",
   })
   const emailsGroup = groupedFields.find(
     (group) => group.section.key === "emails"
@@ -1258,7 +1316,7 @@ const ResponsiblesEditor = ({
 
           return (
             <Card
-              key={row.id}
+              key={row.formRowId}
               className="overflow-visible border border-border bg-card"
             >
               <CardHeader className="flex-row items-start justify-between gap-4">
@@ -1277,7 +1335,7 @@ const ResponsiblesEditor = ({
               <CardContent className="space-y-4">
                 {visibleGroups.map((group) => (
                   <div
-                    key={`${row.id}-${group.section.key}`}
+                    key={`${row.formRowId}-${group.section.key}`}
                     className="space-y-4"
                   >
                     <div className="text-sm font-semibold text-foreground">
@@ -1301,7 +1359,7 @@ const ResponsiblesEditor = ({
                       <SectionGrid wide={group.section.key === "address"}>
                         {group.fields.map((fieldConfig) => (
                           <FieldBlock
-                            key={`${row.id}-${fieldConfig.fieldKey}`}
+                            key={`${row.formRowId}-${fieldConfig.fieldKey}`}
                             fieldConfig={fieldConfig}
                             form={form}
                             name={`responsibles.${index}.${fieldConfig.fieldKey}`}
@@ -1325,6 +1383,7 @@ const CustomerForm = ({
   customer,
   onSubmit,
   isSubmitting,
+  draftCustomerId,
 }: {
   mode: "create" | "edit"
   customer?: CustomerResponse
@@ -1332,6 +1391,7 @@ const CustomerForm = ({
     payload: CustomerCreateInput | CustomerUpdateInput
   ) => Promise<void>
   isSubmitting: boolean
+  draftCustomerId?: string
 }) => {
   const form = useForm<CustomerFormValues>({
     defaultValues: createDefaultValues(),
@@ -1347,7 +1407,7 @@ const CustomerForm = ({
   } = useCustomerFormDraft({
     form,
     mode,
-    customerId: customer?.id,
+    customerId: draftCustomerId,
     activeTab,
     setActiveTab,
   })
@@ -1378,6 +1438,12 @@ const CustomerForm = ({
   }, [customer, form, syncDraftAvailability])
 
   useEffect(() => {
+    const currentPersonType = form.getValues("personType")
+
+    if (currentPersonType !== personType) {
+      return
+    }
+
     if (personType === "INDIVIDUAL") {
       form.setValue("responsibles", [], { shouldDirty: true })
       return
@@ -1454,13 +1520,15 @@ const CustomerForm = ({
       : new Set(["profile.birthDate"])
 
   const handleSubmit = form.handleSubmit(async (values) => {
-    const payload = toPayload(values)
-    const companyResponsibles =
-      values.personType === "COMPANY" && "responsibles" in payload
-        ? (payload.responsibles ?? [])
-        : []
+    const payload =
+      mode === "edit" && customer
+        ? buildCustomerUpdatePayload(values, customer)
+        : toPayload(values)
+    const hasCompanyResponsible = values.responsibles.some(
+      (responsible) => responsible.fullName.trim().length > 0
+    )
 
-    if (values.personType === "COMPANY" && companyResponsibles.length === 0) {
+    if (values.personType === "COMPANY" && !hasCompanyResponsible) {
       toast.error("Cliente PJ precisa de ao menos um responsável.")
       return
     }
@@ -1782,22 +1850,33 @@ export const CustomerFormPage = ({ mode }: CustomerFormPageProps) => {
   const queryClient = useQueryClient()
   const customerId = params.customerId
 
+  useEffect(() => {
+    if (mode !== "edit" || !customerId) {
+      return
+    }
+
+    clearCustomerFormDrafts()
+  }, [customerId, mode])
+
   const customerQuery = useQuery({
     queryKey: ["customer", customerId],
     queryFn: () => customerService.getById(customerId!),
     enabled: mode === "edit" && Boolean(customerId),
   })
+  const customerPersonType = customerQuery.data
+    ? normalizePersonTypeValue(customerQuery.data.personType)
+    : null
   const responsibleListQuery = useQuery({
     queryKey: ["customer-responsibles", customerId],
     queryFn: () => responsibleService.list(customerId!),
     enabled:
       mode === "edit" &&
       Boolean(customerId) &&
-      customerQuery.data?.personType === "COMPANY",
+      customerPersonType === "COMPANY",
   })
   const customerData =
     customerQuery.data &&
-    customerQuery.data.personType === "COMPANY" &&
+    customerPersonType === "COMPANY" &&
     responsibleListQuery.data
       ? {
           ...customerQuery.data,
@@ -1807,13 +1886,11 @@ export const CustomerFormPage = ({ mode }: CustomerFormPageProps) => {
   const isEditCustomerLoading =
     mode === "edit" &&
     (customerQuery.isLoading ||
-      (customerQuery.data?.personType === "COMPANY" &&
-        responsibleListQuery.isLoading))
+      (customerPersonType === "COMPANY" && responsibleListQuery.isLoading))
   const isEditCustomerError =
     mode === "edit" &&
     (customerQuery.isError ||
-      (customerQuery.data?.personType === "COMPANY" &&
-        responsibleListQuery.isError))
+      (customerPersonType === "COMPANY" && responsibleListQuery.isError))
 
   const createMutation = useMutation({
     mutationFn: (payload: CustomerCreateInput) =>
@@ -1889,7 +1966,7 @@ export const CustomerFormPage = ({ mode }: CustomerFormPageProps) => {
           <EmptyDescription>
             Verifique o identificador informado ou a disponibilidade de `GET
             /customers/:customerId`
-            {customerQuery.data?.personType === "COMPANY"
+            {customerPersonType === "COMPANY"
               ? " e `GET /customers/:customerId/responsibles`."
               : "."}
           </EmptyDescription>
@@ -1905,6 +1982,7 @@ export const CustomerFormPage = ({ mode }: CustomerFormPageProps) => {
         customer={customerData}
         onSubmit={handleSubmit}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
+        draftCustomerId={customerId}
       />
     </div>
   )

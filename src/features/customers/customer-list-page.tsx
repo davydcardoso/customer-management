@@ -58,6 +58,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { customerService } from "@/features/customers/customer-service"
+import { clearCustomerFormDrafts } from "@/features/customers/lib/customer-form-draft-storage"
 import { ApiError } from "@/shared/api/http-client"
 import type { CustomerResponse } from "@/shared/api/types"
 import {
@@ -667,9 +668,10 @@ export const CustomerListPage = () => {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="start" className="w-44">
                             <DropdownMenuItem
-                              onSelect={() =>
+                              onSelect={() => {
+                                clearCustomerFormDrafts()
                                 navigate(`/customers/${customer.id}/edit`)
-                              }
+                              }}
                             >
                               <PencilIcon className="size-4" />
                               Editar
