@@ -7,6 +7,7 @@ import {
   createEmptyContact,
   createEmptyEmail,
   createEmptyResponsible,
+  normalizePersonTypeValue,
 } from "@/features/customers/lib/customer-form-helpers"
 import type { CustomerFormValues } from "@/features/customers/types/customer-form-types"
 
@@ -173,6 +174,10 @@ const hydrateDraftValues = (
   return {
     ...defaults,
     ...normalizedValues,
+    personType: normalizePersonTypeValue(
+      normalizedValues?.personType,
+      defaults.personType
+    ),
     core: {
       ...defaults.core,
       ...(normalizedValues?.core ?? {}),

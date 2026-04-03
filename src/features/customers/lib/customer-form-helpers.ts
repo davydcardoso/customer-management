@@ -22,6 +22,7 @@ import type {
   EmailFormValues,
   ResponsibleFormValues,
 } from "@/features/customers/types/customer-form-types"
+import type { PersonType } from "@/shared/api/types"
 
 export const EMPTY_SELECT_VALUE = "__empty__"
 
@@ -42,6 +43,26 @@ export const resolveCustomerFieldName = (fieldConfig: FieldConfig) => {
   }
 
   return `${fieldConfig.section}.${fieldConfig.fieldKey}`
+}
+
+export const normalizePersonTypeValue = (
+  value: string | null | undefined,
+  fallback: PersonType = "INDIVIDUAL"
+): PersonType => {
+  switch (value?.toUpperCase()) {
+    case "INDIVIDUAL":
+    case "PF":
+    case "PESSOA_FISICA":
+    case "PESSOAFISICA":
+      return "INDIVIDUAL"
+    case "COMPANY":
+    case "PJ":
+    case "PESSOA_JURIDICA":
+    case "PESSOAJURIDICA":
+      return "COMPANY"
+    default:
+      return fallback
+  }
 }
 
 const fallbackResponsibleFields: FieldConfig[] = [
@@ -819,7 +840,10 @@ export const mapCustomerToFormValues = (
 
   return {
     ...defaults,
-    personType: customer.personType,
+    personType: normalizePersonTypeValue(
+      customer.personType,
+      defaults.personType
+    ),
     core: {
       active: toBooleanFieldValue(customer.core.active ?? true),
       customerSince: customer.core.customerSince || "",

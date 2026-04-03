@@ -73,6 +73,7 @@ import {
 import { useCustomerFormDraft } from "@/features/customers/lib/use-customer-form-draft"
 import { addressLookupService } from "@/features/customers/address-lookup-service"
 import { customerService } from "@/features/customers/customer-service"
+import { responsibleService } from "@/features/customers/responsible-service"
 import type {
   ContactEmailSectionProps,
   ContactFormValues,
@@ -1786,6 +1787,33 @@ export const CustomerFormPage = ({ mode }: CustomerFormPageProps) => {
     queryFn: () => customerService.getById(customerId!),
     enabled: mode === "edit" && Boolean(customerId),
   })
+  const responsibleListQuery = useQuery({
+    queryKey: ["customer-responsibles", customerId],
+    queryFn: () => responsibleService.list(customerId!),
+    enabled:
+      mode === "edit" &&
+      Boolean(customerId) &&
+      customerQuery.data?.personType === "COMPANY",
+  })
+  const customerData =
+    customerQuery.data &&
+    customerQuery.data.personType === "COMPANY" &&
+    responsibleListQuery.data
+      ? {
+          ...customerQuery.data,
+          responsibles: responsibleListQuery.data,
+        }
+      : customerQuery.data
+  const isEditCustomerLoading =
+    mode === "edit" &&
+    (customerQuery.isLoading ||
+      (customerQuery.data?.personType === "COMPANY" &&
+        responsibleListQuery.isLoading))
+  const isEditCustomerError =
+    mode === "edit" &&
+    (customerQuery.isError ||
+      (customerQuery.data?.personType === "COMPANY" &&
+        responsibleListQuery.isError))
 
   const createMutation = useMutation({
     mutationFn: (payload: CustomerCreateInput) =>
@@ -1812,6 +1840,9 @@ export const CustomerFormPage = ({ mode }: CustomerFormPageProps) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["customers"] }),
         queryClient.invalidateQueries({ queryKey: ["customer", customerId] }),
+        queryClient.invalidateQueries({
+          queryKey: ["customer-responsibles", customerId],
+        }),
       ])
     },
     onError: (error) => {
@@ -1834,7 +1865,7 @@ export const CustomerFormPage = ({ mode }: CustomerFormPageProps) => {
     await updateMutation.mutateAsync(payload as CustomerUpdateInput)
   }
 
-  if (mode === "edit" && customerQuery.isLoading) {
+  if (isEditCustomerLoading) {
     return (
       <div className="flex min-h-96 items-center justify-center">
         <div className="flex items-center gap-3 rounded-lg border border-border bg-background px-4 py-2">
@@ -1847,7 +1878,7 @@ export const CustomerFormPage = ({ mode }: CustomerFormPageProps) => {
     )
   }
 
-  if (mode === "edit" && customerQuery.isError) {
+  if (isEditCustomerError) {
     return (
       <Empty className="min-h-96 border border-dashed border-red-200 bg-red-50/70">
         <EmptyHeader>
@@ -1857,7 +1888,10 @@ export const CustomerFormPage = ({ mode }: CustomerFormPageProps) => {
           <EmptyTitle>Cliente não carregado</EmptyTitle>
           <EmptyDescription>
             Verifique o identificador informado ou a disponibilidade de `GET
-            /customers/:customerId`.
+            /customers/:customerId`
+            {customerQuery.data?.personType === "COMPANY"
+              ? " e `GET /customers/:customerId/responsibles`."
+              : "."}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -1868,7 +1902,7 @@ export const CustomerFormPage = ({ mode }: CustomerFormPageProps) => {
     <div className="space-y-6">
       <CustomerForm
         mode={mode}
-        customer={customerQuery.data}
+        customer={customerData}
         onSubmit={handleSubmit}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
       />
