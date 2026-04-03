@@ -1855,7 +1855,10 @@ export const CustomerFormPage = ({ mode }: CustomerFormPageProps) => {
       return
     }
 
-    clearCustomerFormDrafts()
+    clearCustomerFormDrafts({
+      preserveMode: "edit",
+      preserveCustomerId: customerId,
+    })
   }, [customerId, mode])
 
   const customerQuery = useQuery({

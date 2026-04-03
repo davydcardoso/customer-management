@@ -686,7 +686,10 @@ export const CustomerListPage = () => {
                           <DropdownMenuContent align="start" className="w-44">
                             <DropdownMenuItem
                               onSelect={() => {
-                                clearCustomerFormDrafts()
+                                clearCustomerFormDrafts({
+                                  preserveMode: "edit",
+                                  preserveCustomerId: customer.id,
+                                })
                                 navigate(`/customers/${customer.id}/edit`)
                               }}
                             >
